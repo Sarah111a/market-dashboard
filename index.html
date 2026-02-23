@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Market Dashboard | 股价因素仪表盘</title>
+<meta name="description" content="港美股多维度市场分析仪表盘">
+<meta name="theme-color" content="#0d1117">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--bg4:#30363d;
+  --text:#e6edf3;--text2:#8b949e;--text3:#484f58;
+  --green:#3fb950;--red:#f85149;--yellow:#d29922;--blue:#58a6ff;
+  --cyan:#39d2c0;--orange:#db6d28;--purple:#bc8cff;
+  --border:#30363d;
+  --radius:12px;--radius-sm:8px;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+  background:var(--bg);color:var(--text);line-height:1.6;padding:12px;max-width:1400px;margin:0 auto}
+h1{font-size:1.3rem;font-weight:600;margin-bottom:4px}
+h2{font-size:1.05rem;font-weight:600;color:var(--text);margin-bottom:12px;
+  display:flex;align-items:center;gap:8px}
+h2 .icon{font-size:1.2rem}
+.update-time{font-size:0.75rem;color:var(--text3);margin-bottom:16px}
+
+/* Grid */
+.grid{display:grid;gap:12px;margin-bottom:16px}
+.grid-2{grid-template-columns:repeat(2,1fr)}
+.grid-3{grid-template-columns:repeat(3,1fr)}
+.grid-4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:768px){
+  .grid-2,.grid-3,.grid-4{grid-template-columns:1fr}
+  body{padding:8px}
+}
+@media(min-width:769px) and (max-width:1024px){
+  .grid-3,.grid-4{grid-template-columns:repeat(2,1fr)}
+}
+
+/* Cards */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;
+  transition:border-color 0.2s}
+.card:hover{border-color:var(--text3)}
+.card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.card-title{font-size:0.85rem;color:var(--text2);font-weight:500}
+
+/* Summary banner */
+.summary{background:linear-gradient(135deg,#161b22 0%,#1a2332 100%);
+  border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;
+  font-size:0.9rem;line-height:1.8}
+.summary strong{color:var(--blue)}
+
+/* Signal lights */
+.light{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px}
+.light-green{background:var(--green);box-shadow:0 0 8px var(--green)}
+.light-yellow{background:var(--yellow);box-shadow:0 0 8px var(--yellow)}
+.light-red{background:var(--red);box-shadow:0 0 8px var(--red)}
+
+/* Metric display */
+.metric{text-align:center;padding:8px}
+.metric-value{font-size:1.5rem;font-weight:700;font-variant-numeric:tabular-nums}
+.metric-label{font-size:0.75rem;color:var(--text2);margin-top:2px}
+.metric-sub{font-size:0.8rem;margin-top:4px}
+
+.up{color:var(--green)}.down{color:var(--red)}.neutral{color:var(--text2)}
+.tag{display:inline-block;font-size:0.7rem;padding:2px 8px;border-radius:4px;font-weight:500}
+.tag-green{background:rgba(63,185,80,0.15);color:var(--green)}
+.tag-red{background:rgba(248,81,73,0.15);color:var(--red)}
+.tag-yellow{background:rgba(210,153,34,0.15);color:var(--yellow)}
+.tag-blue{background:rgba(88,166,255,0.15);color:var(--blue)}
+.tag-purple{background:rgba(188,140,255,0.15);color:var(--purple)}
+
+/* Stock table */
+.stock-table{width:100%;border-collapse:collapse;font-size:0.82rem}
+.stock-table th{text-align:left;color:var(--text2);font-weight:500;padding:8px;
+  border-bottom:1px solid var(--border);font-size:0.75rem;white-space:nowrap}
+.stock-table td{padding:8px;border-bottom:1px solid var(--bg3);vertical-align:middle}
+.stock-table tr:hover{background:var(--bg3)}
+.stock-name{font-weight:600;white-space:nowrap}
+.stock-symbol{color:var(--text2);font-size:0.75rem}
+
+/* Sparkline */
+.sparkline{width:80px;height:30px}
+
+/* Signals */
+.signal{display:inline-block;font-size:0.7rem;padding:2px 6px;border-radius:4px;margin:1px}
+.signal-positive{background:rgba(63,185,80,0.15);color:var(--green)}
+.signal-warning{background:rgba(248,81,73,0.15);color:var(--red)}
+.signal-info{background:rgba(88,166,255,0.15);color:var(--blue)}
+.signal-alert{background:rgba(248,81,73,0.3);color:var(--red);font-weight:600;animation:pulse 2s infinite}
+.signal-alert_positive{background:rgba(63,185,80,0.3);color:var(--green);font-weight:600}
+
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.6}}
+
+/* Alerts box */
+.alert-box{padding:12px;border-radius:var(--radius-sm);margin-bottom:8px;font-size:0.85rem}
+.alert-danger{background:rgba(248,81,73,0.1);border-left:3px solid var(--red)}
+.alert-warning{background:rgba(210,153,34,0.1);border-left:3px solid var(--yellow)}
+.alert-positive{background:rgba(63,185,80,0.1);border-left:3px solid var(--green)}
+.alert-info{background:rgba(88,166,255,0.1);border-left:3px solid var(--blue)}
+
+/* News */
+.news-item{padding:10px 0;border-bottom:1px solid var(--bg3);font-size:0.85rem}
+.news-item:last-child{border-bottom:none}
+.news-item a{color:var(--blue);text-decoration:none}
+.news-item a:hover{text-decoration:underline}
+.news-meta{font-size:0.7rem;color:var(--text3);margin-top:3px}
+
+/* Season tips */
+.season-tip{padding:10px 14px;background:var(--bg3);border-radius:var(--radius-sm);
+  margin-bottom:6px;font-size:0.82rem;border-left:3px solid var(--purple)}
+
+/* MA position dots */
+.ma-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 2px}
+.ma-above{background:var(--green)}.ma-below{background:var(--red)}.ma-na{background:var(--text3)}
+
+/* Responsive table scroll */
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+/* Section spacing */
+.section{margin-bottom:20px}
+
+/* Footer */
+.footer{text-align:center;color:var(--text3);font-size:0.7rem;padding:20px 0;border-top:1px solid var(--border)}
+</style>
+</head>
+<body>
+
+<!-- 区域零：今日摘要 -->
+<div class="summary">**2026-02-23 周一 市场概览：** 流动性环境黄灯-中性（综合评分55/100）。 美元指数97.49，30日走弱（-0.9%）。 10Y美债4.09%， 2Y-10Y利差+0.64%（正常（正利差））。 VIX 19.09（正常，1年分位66.4%）。 市场情绪：恐惧。 美股持仓：Tesla↑+0.0%，AMD↓-1.6%，iShares Silver ETF↑+7.9%。 恒指27,082（+2.5%）。 季节性提示：当前无特殊季节性因素。 关注：3/18 FOMC利率决议；4月中旬 AMD Q1财报。</div>
+
+<!-- 区域一：宏观流动性 -->
+<div class="section">
+  <h2><span class="icon">🌍</span> 宏观流动性
+    <span class="light light-yellow"></span>
+    <span class="tag tag-yellow">
+      中性（观望）
+    </span>
+  </h2>
+
+  
+
+  <div class="grid grid-4">
+    <!-- DXY -->
+    <div class="card">
+      <div class="card-title">美元指数 DXY</div>
+      <div class="metric">
+        <div class="metric-value">97.49</div>
+        
+        <div class="metric-sub down">
+          日 -0.31%
+          &nbsp; 30日 ↓ -0.9%
+        </div>
+        
+      </div>
+    </div>
+    <!-- 美债 -->
+    <div class="card">
+      <div class="card-title">美债收益率</div>
+      <div class="metric">
+        <div class="metric-value">4.09%</div>
+        <div class="metric-label">10年期</div>
+        <div class="metric-sub">
+          2Y: 3.45%
+          &nbsp; 利差:
+          <span class="up">
+            +0.64%
+          </span>
+        </div>
+        <div style="font-size:0.7rem;color:var(--text2);margin-top:4px">正常（正利差）</div>
+      </div>
+    </div>
+    <!-- 信用利差 -->
+    <div class="card">
+      <div class="card-title">信用利差 HY Spread</div>
+      <div class="metric">
+        <div class="metric-value">--</div>
+        
+        <div class="metric-label">需要FRED API Key</div>
+        
+      </div>
+    </div>
+    <!-- 联邦基金利率 + USD/CNH -->
+    <div class="card">
+      <div class="card-title">美联储 / 汇率</div>
+      <div class="metric">
+        
+        <div class="metric-value" style="font-size:1rem">需配置FRED Key</div>
+        
+        
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 区域二：市场情绪 -->
+<div class="section">
+  <h2><span class="icon">🧠</span> 市场情绪
+    
+    <span class="tag tag-red">
+      恐惧 (37.2)
+    </span>
+    
+  </h2>
+  <div class="grid grid-3">
+    <!-- VIX -->
+    <div class="card">
+      <div class="card-title">VIX 恐慌指数</div>
+      <div class="metric">
+        <div class="metric-value neutral">
+          19.09
+        </div>
+        <div class="metric-sub">
+          <span class="tag tag-green">
+            正常
+          </span>
+        </div>
+        
+        <div class="metric-label">1年分位: 66.4% | 范围: 13.47-52.33</div>
+        
+      </div>
+    </div>
+    <!-- Fear & Greed -->
+    <div class="card">
+      <div class="card-title">恐惧贪婪指数</div>
+      <div class="metric">
+        <div class="metric-value">42.6</div>
+        <div class="metric-sub">
+          
+          <span class="tag tag-red">
+            恐惧
+          </span>
+          
+        </div>
+      </div>
+    </div>
+    <!-- Put/Call -->
+    <div class="card">
+      <div class="card-title">Put/Call Ratio (SPY)</div>
+      <div class="metric">
+        <div class="metric-value">1.41</div>
+        
+        <div class="metric-sub">
+          <span class="tag tag-red">
+            极度看跌（可能反转信号）
+          </span>
+        </div>
+        
+        
+        <div class="metric-label">到期日: 2026-02-23</div>
+        
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 区域三：持仓/观察列表 - 美股 -->
+<div class="section">
+  <h2><span class="icon">📈</span> 美股观察列表</h2>
+  <div class="card">
+    <div class="table-wrap">
+      <table class="stock-table">
+        <thead>
+          <tr>
+            <th>股票</th><th>价格</th><th>日涨跌</th><th>周</th><th>月</th>
+            <th>RSI</th><th>MA位置</th><th>量比</th><th>信号</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+          <tr>
+            <td>
+              <div class="stock-name">Tesla</div>
+              <div class="stock-symbol">TSLA</div>
+            </td>
+            <td style="font-weight:600;font-variant-numeric:tabular-nums">
+              $411.82
+            </td>
+            <td class="up">
+              +0.03%
+            </td>
+            <td class="down">
+              -1.3%
+            </td>
+            <td class="down">
+              -1.8%
+            </td>
+            <td>
+              
+              <span class="neutral">39</span>
+              
+            </td>
+            <td>
+              <span class="ma-dot ma-below" title="MA20"></span>
+              <span class="ma-dot ma-below" title="MA50"></span>
+              <span class="ma-dot ma-above" title="MA200"></span>
+              <span style="font-size:0.65rem;color:var(--text3);margin-left:2px">20/50/200</span>
+            </td>
+            <td>
+              
+              <span class="neutral">0.97x</span>
+              
+            </td>
+            <td>
+              
+              <span class="signal signal-positive">站上200日均线</span>
+              
+              
+              
+              <span class="signal signal-info">🔗 10Y收益率4.09%（中性偏高），关注利率方向 · 长端利率上行压制高估值成长股</span>
+              
+              <span class="signal signal-info">🔗 10Y收益率4.09%（偏高），降息预期利好尚未兑现 · 利率下行利好成长股估值</span>
+              
+              <span class="signal signal-info">🔗 VIX 19.09（正常），市场平稳</span>
+              
+            </td>
+          </tr>
+          
+          <tr>
+            <td>
+              <div class="stock-name">AMD</div>
+              <div class="stock-symbol">AMD</div>
+            </td>
+            <td style="font-weight:600;font-variant-numeric:tabular-nums">
+              $200.15
+            </td>
+            <td class="down">
+              -1.58%
+            </td>
+            <td class="down">
+              -2.8%
+            </td>
+            <td class="down">
+              -13.7%
+            </td>
+            <td>
+              
+              <span class="neutral">34</span>
+              
+            </td>
+            <td>
+              <span class="ma-dot ma-below" title="MA20"></span>
+              <span class="ma-dot ma-below" title="MA50"></span>
+              <span class="ma-dot ma-above" title="MA200"></span>
+              <span style="font-size:0.65rem;color:var(--text3);margin-left:2px">20/50/200</span>
+            </td>
+            <td>
+              
+              <span class="neutral">0.9x</span>
+              
+            </td>
+            <td>
+              
+              <span class="signal signal-positive">站上200日均线</span>
+              
+              
+              
+              <span class="signal signal-info">🔗 上游 TSM $370.54 今日涨+2.8% · 台积电是AMD/NVDA核心代工方</span>
+              
+              <span class="signal signal-info">🔗 10Y收益率4.09%（偏高），降息预期利好尚未兑现 · 利率下行利好成长股估值</span>
+              
+              <span class="signal signal-info">🔗 VIX 19.09（正常），市场平稳</span>
+              
+            </td>
+          </tr>
+          
+          <tr>
+            <td>
+              <div class="stock-name">iShares Silver ETF</div>
+              <div class="stock-symbol">SLV</div>
+            </td>
+            <td style="font-weight:600;font-variant-numeric:tabular-nums">
+              $76.62
+            </td>
+            <td class="up">
+              +7.90%
+            </td>
+            <td class="up">
+              +13.1%
+            </td>
+            <td class="down">
+              -10.3%
+            </td>
+            <td>
+              
+              <span class="neutral">51</span>
+              
+            </td>
+            <td>
+              <span class="ma-dot ma-below" title="MA20"></span>
+              <span class="ma-dot ma-above" title="MA50"></span>
+              <span class="ma-dot ma-above" title="MA200"></span>
+              <span style="font-size:0.65rem;color:var(--text3);margin-left:2px">20/50/200</span>
+            </td>
+            <td>
+              
+              <span class="neutral">0.54x</span>
+              
+            </td>
+            <td>
+              
+              <span class="signal signal-positive">站上200日均线</span>
+              
+              
+              <span class="signal signal-alert_positive">🔥 日涨幅 7.9%</span>
+              
+              
+              <span class="signal signal-info">🔗 美元走弱趋势（30日-0.9%），DXY 97.49 · 美元走弱利好白银</span>
+              
+            </td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- 区域三续：港股观察列表 -->
+<div class="section">
+  <h2><span class="icon">📊</span> 港股观察列表</h2>
+  <div class="card">
+    <div class="table-wrap">
+      <table class="stock-table">
+        <thead>
+          <tr>
+            <th>股票</th><th>价格</th><th>日涨跌</th><th>周</th><th>月</th>
+            <th>RSI</th><th>MA位置</th><th>量比</th><th>信号</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+          <tr>
+            <td>
+              <div class="stock-name">腾讯控股</div>
+              <div class="stock-symbol">0700.HK</div>
+            </td>
+            <td style="font-weight:600;font-variant-numeric:tabular-nums">
+              HK$538.00
+            </td>
+            <td class="up">
+              +3.07%
+            </td>
+            <td class="down">
+              -1.8%
+            </td>
+            <td class="down">
+              -11.8%
+            </td>
+            <td>
+              
+              <span class="up">21</span>
+              
+            </td>
+            <td>
+              <span class="ma-dot ma-below"></span>
+              <span class="ma-dot ma-below"></span>
+              <span class="ma-dot ma-below"></span>
+              <span style="font-size:0.65rem;color:var(--text3);margin-left:2px">20/50/200</span>
+            </td>
+            <td>
+              
+              <span class="neutral">0.72x</span>
+              
+            </td>
+            <td>
+              
+              <span class="signal signal-positive">RSI 21 超卖</span>
+              
+              <span class="signal signal-warning">跌破200日均线</span>
+              
+              
+              <span class="signal signal-alert_positive">💡 RSI 21 触发超卖预警</span>
+              
+              
+              <span class="signal signal-info">🔗 上游 AAPL $264.58 今日涨+1.5% · 苹果生态影响腾讯游戏业务</span>
+              
+              <span class="signal signal-info">🔗 美元走弱中（30日-0.9%），DXY 97.49 · 利空暂缓</span>
+              
+              <span class="signal signal-info">🔗 VIX 19.09（正常），市场平稳</span>
+              
+            </td>
+          </tr>
+          
+          <tr>
+            <td>
+              <div class="stock-name">阿里巴巴</div>
+              <div class="stock-symbol">9988.HK</div>
+            </td>
+            <td style="font-weight:600;font-variant-numeric:tabular-nums">
+              HK$152.20
+            </td>
+            <td class="up">
+              +3.47%
+            </td>
+            <td class="down">
+              -4.9%
+            </td>
+            <td class="down">
+              -5.1%
+            </td>
+            <td>
+              
+              <span class="up">25</span>
+              
+            </td>
+            <td>
+              <span class="ma-dot ma-below"></span>
+              <span class="ma-dot ma-below"></span>
+              <span class="ma-dot ma-above"></span>
+              <span style="font-size:0.65rem;color:var(--text3);margin-left:2px">20/50/200</span>
+            </td>
+            <td>
+              
+              <span class="neutral">0.64x</span>
+              
+            </td>
+            <td>
+              
+              <span class="signal signal-positive">RSI 25 超卖</span>
+              
+              <span class="signal signal-positive">站上200日均线</span>
+              
+              
+              <span class="signal signal-alert_positive">💡 RSI 25 触发超卖预警</span>
+              
+              
+              <span class="signal signal-info">🔗 美元走弱中（30日-0.9%），DXY 97.49 · 利空暂缓</span>
+              
+              <span class="signal signal-info">🔗 VIX 19.09（正常），市场平稳</span>
+              
+            </td>
+          </tr>
+          
+          <tr>
+            <td>
+              <div class="stock-name">美团</div>
+              <div class="stock-symbol">3690.HK</div>
+            </td>
+            <td style="font-weight:600;font-variant-numeric:tabular-nums">
+              HK$85.00
+            </td>
+            <td class="up">
+              +5.26%
+            </td>
+            <td class="down">
+              -4.3%
+            </td>
+            <td class="down">
+              -13.7%
+            </td>
+            <td>
+              
+              <span class="up">23</span>
+              
+            </td>
+            <td>
+              <span class="ma-dot ma-below"></span>
+              <span class="ma-dot ma-below"></span>
+              <span class="ma-dot ma-below"></span>
+              <span style="font-size:0.65rem;color:var(--text3);margin-left:2px">20/50/200</span>
+            </td>
+            <td>
+              
+              <span class="neutral">1.45x</span>
+              
+            </td>
+            <td>
+              
+              <span class="signal signal-positive">RSI 23 超卖</span>
+              
+              <span class="signal signal-warning">跌破200日均线</span>
+              
+              
+              <span class="signal signal-alert_positive">💡 RSI 23 触发超卖预警</span>
+              
+              <span class="signal signal-alert_positive">🔥 日涨幅 5.3%</span>
+              
+              
+            </td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- 区域四：港股专区 -->
+<div class="section">
+  <h2><span class="icon">🇭🇰</span> 港股市场</h2>
+  <div class="grid grid-4">
+    
+    
+    <div class="card">
+      <div class="card-title">恒生指数</div>
+      <div class="metric">
+        <div class="metric-value" style="font-size:1.2rem">27,082</div>
+        
+        <div class="metric-sub up">
+          +2.53%
+        </div>
+        
+        
+        <div class="metric-label">1年分位: 96.3%</div>
+        
+      </div>
+    </div>
+    
+    
+    <div class="card">
+      <div class="card-title">恒生科技ETF</div>
+      <div class="metric">
+        <div class="metric-value" style="font-size:1.2rem">11</div>
+        
+        <div class="metric-sub up">
+          +3.01%
+        </div>
+        
+        
+        <div class="metric-label">1年分位: 29.0%</div>
+        
+      </div>
+    </div>
+    
+    
+    <div class="card">
+      <div class="card-title">国企指数</div>
+      <div class="metric">
+        <div class="metric-value" style="font-size:1.2rem">9,197</div>
+        
+        <div class="metric-sub up">
+          +2.65%
+        </div>
+        
+        
+        <div class="metric-label">1年分位: 76.0%</div>
+        
+      </div>
+    </div>
+    
+
+    <!-- 南向资金 + AH溢价 -->
+    <div class="card">
+      <div class="card-title">南向资金 / AH溢价</div>
+      <div class="metric">
+        
+        <div class="metric-value" style="font-size:0.9rem">南向资金数据暂不可用</div>
+        
+        
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--bg3)">
+          <div style="font-size:0.75rem;color:var(--text2)">AH溢价指数</div>
+          <div style="font-size:1.1rem;font-weight:600">55.66</div>
+          <div class="metric-label">H股溢价（罕见）</div>
+        </div>
+        
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 区域五 + 六：季节性 + 日历 -->
+<div class="section">
+  <div class="grid grid-2">
+    <div class="card">
+      <h2 style="margin-bottom:12px"><span class="icon">📅</span> 季节性规律</h2>
+      
+      <div class="season-tip">当前无特殊季节性因素</div>
+      
+    </div>
+    <div class="card">
+      <h2 style="margin-bottom:12px"><span class="icon">⏰</span> 事件提醒</h2>
+      
+      <div class="season-tip" style="border-left-color:var(--yellow)">3/18 FOMC利率决议</div>
+      
+      <div class="season-tip" style="border-left-color:var(--yellow)">4月中旬 AMD Q1财报</div>
+      
+      <div class="season-tip" style="border-left-color:var(--yellow)">关注特朗普关税政策进展</div>
+      
+      
+    </div>
+  </div>
+</div>
+
+<!-- 区域七：财经新闻 -->
+
+<div class="section">
+  <h2><span class="icon">📰</span> 财经要闻</h2>
+  <div class="card">
+    
+    <div class="news-item">
+      <a href="https://www.cnbc.com/2026/02/23/trump-higher-tariffs-us-allies-rivals-trade-relief.html" target="_blank" rel="noopener">Some U.S. allies see higher duties under new tariffs, rivals see relief, trade body says</a>
+      <div class="news-meta">US Top News and Analysis · 02-23 08:19</div>
+    </div>
+    
+    <div class="news-item">
+      <a href="https://www.cnbc.com/2026/02/23/european-markets-stoxx-600-ftse-dax-cac-trump-tariffs-reaction.html" target="_blank" rel="noopener">European stocks start the week lower as markets react to new Trump tariffs</a>
+      <div class="news-meta">US Top News and Analysis · 02-23 08:09</div>
+    </div>
+    
+    <div class="news-item">
+      <a href="https://www.cnbc.com/2026/02/23/trumps-tariffs-market-reaction-stocks-bitcoin.html" target="_blank" rel="noopener">'Sit still and do nothing': Trump's latest tariff salvos leave markets unfazed</a>
+      <div class="news-meta">US Top News and Analysis · 02-23 07:25</div>
+    </div>
+    
+    <div class="news-item">
+      <a href="https://www.cnbc.com/2026/02/23/us-launch-peace-corps-tech-corps-india-export-ai-stack-sovereignty-counter-china.html" target="_blank" rel="noopener">Trump unveils ‘Tech Corps’ to promote American AI abroad</a>
+      <div class="news-meta">US Top News and Analysis · 02-23 06:23</div>
+    </div>
+    
+    <div class="news-item">
+      <a href="https://www.cnbc.com/2026/02/23/big-techs-ai-bond-binge-shatters-unspoken-contract-with-investors.html" target="_blank" rel="noopener">How the AI debt binge shattered hyperscalers’ ‘unspoken contract’ with investors</a>
+      <div class="news-meta">US Top News and Analysis · 02-23 06:06</div>
+    </div>
+    
+    <div class="news-item">
+      <a href="https://www.cnbc.com/2026/02/23/trumps-tariff-setback-in-supreme-court-ruling-boosts-china-april-summit-leverage-xi.html" target="_blank" rel="noopener">China’s leverage rises before high-stakes summit as Supreme Court curbs Trump tariffs</a>
+      <div class="news-meta">US Top News and Analysis · 02-23 05:52</div>
+    </div>
+    
+    <div class="news-item">
+      <a href="https://www.cnbc.com/2026/02/23/bitcoin-falls-trump-tariffs.html" target="_blank" rel="noopener">Bitcoin falls over 3% as Trump tariff moves raise uncertainty</a>
+      <div class="news-meta">US Top News and Analysis · 02-23 05:23</div>
+    </div>
+    
+    <div class="news-item">
+      <a href="https://www.cnbc.com/2026/02/23/asia-pacific-markets-hang-seng-index-nifty-50-kospi-trump-tariffs-15-percent-supreme-court.html" target="_blank" rel="noopener">South Korea's Kospi hits fresh high as Asian markets brush off Trump's latest tariff moves</a>
+      <div class="news-meta">US Top News and Analysis · 02-23 04:23</div>
+    </div>
+    
+    <div class="news-item">
+      <a href="https://www.cnbc.com/2026/02/22/jim-cramer-looks-at-whether-private-equity-the-next-market-crisis.html" target="_blank" rel="noopener">Is private equity the next market crisis? How we got here and what's next</a>
+      <div class="news-meta">US Top News and Analysis · 02-22 23:31</div>
+    </div>
+    
+    <div class="news-item">
+      <a href="https://www.cnbc.com/2026/02/21/trump-tariffs.html" target="_blank" rel="noopener">Trump to hike global tariffs to 15% from 10%, 'effective immediately'</a>
+      <div class="news-meta">US Top News and Analysis · 02-21 18:49</div>
+    </div>
+    
+  </div>
+</div>
+
+
+<div class="footer">
+  Market Dashboard v1.0 · 数据更新于 2026-02-23 16:26:10 · 仅供参考，不构成投资建议
+</div>
+
+<script>
+// Mini sparkline renderer
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('[data-sparkline]').forEach(function(el) {
+    try {
+      var data = JSON.parse(el.getAttribute('data-sparkline'));
+      if (!data || data.length < 2) return;
+      var canvas = document.createElement('canvas');
+      canvas.width = 80; canvas.height = 30;
+      canvas.className = 'sparkline';
+      el.appendChild(canvas);
+      var ctx = canvas.getContext('2d');
+      var min = Math.min.apply(null, data);
+      var max = Math.max.apply(null, data);
+      var range = max - min || 1;
+      var color = data[data.length-1] >= data[0] ? '#3fb950' : '#f85149';
+      ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (var i = 0; i < data.length; i++) {
+        var x = (i / (data.length - 1)) * 80;
+        var y = 30 - ((data[i] - min) / range) * 28;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    } catch(e) {}
+  });
+});
+
+// PWA Service Worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(function(){});
+}
+</script>
+</body>
+</html>
